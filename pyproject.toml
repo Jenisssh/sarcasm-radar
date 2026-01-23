@@ -1,0 +1,112 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sarcasm-radar"
+version = "0.1.0"
+description = "Sarcasm detection for Indian English tweets, with Hinglish code-switching support."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "Jenisssh" }]
+keywords = ["sarcasm-detection", "nlp", "indian-english", "hinglish", "transformers"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Linguistic",
+]
+dependencies = [
+    "pandas>=2.2,<2.3",
+    "numpy>=2.1,<2.2",
+    "scikit-learn>=1.6,<1.7",
+    "transformers>=4.46,<4.48",
+    "datasets>=3.1,<3.2",
+    "accelerate>=1.1,<1.3",
+    "tokenizers>=0.20,<0.22",
+    "torch>=2.5,<2.6",
+    "pydantic>=2.10,<2.11",
+    "pydantic-settings>=2.7,<2.8",
+    "fastapi>=0.115,<0.116",
+    "uvicorn[standard]>=0.34,<0.35",
+    "streamlit>=1.41,<1.42",
+    "plotly>=5.24,<5.25",
+    "structlog>=24.4,<25",
+    "lime>=0.2,<0.3",
+    "joblib>=1.4,<2",
+    "pyyaml>=6.0,<7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3,<9",
+    "pytest-cov>=6.0,<7",
+    "ruff>=0.8,<0.9",
+    "mypy>=1.14,<2",
+    "pre-commit>=4.0,<5",
+    "httpx>=0.28,<0.29",
+    "types-PyYAML>=6.0",
+]
+notebook = [
+    "jupyter>=1.1,<2",
+    "ipykernel>=6.29,<7",
+    "matplotlib>=3.10,<4",
+    "seaborn>=0.13,<0.14",
+]
+
+[project.urls]
+Repository = "https://github.com/Jenisssh/sarcasm-radar"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+sarcasm_radar = ["py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+extend-exclude = ["notebooks", "data"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF", "N"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["N802", "N803", "N806"]
+"src/sarcasm_radar/features/*.py" = ["N803", "N806"]
+"src/sarcasm_radar/models/*.py" = ["N803", "N806"]
+"src/sarcasm_radar/evaluation/*.py" = ["N803", "N806"]
+"src/sarcasm_radar/api/*.py" = ["B008"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+show_error_codes = true
+files = ["src"]
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+[tool.coverage.run]
+source = ["src/sarcasm_radar"]
+branch = true
