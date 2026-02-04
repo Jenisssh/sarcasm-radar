@@ -1,0 +1,41 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sarcasm-radar:latest
+    container_name: sarcasm-radar-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount the trained model directory. Run `make train` on the host
+      # first to produce models/distilbert/ (or models/xlmr/).
+      - ./models:/app/models:ro
+    environment:
+      SARCASM_RADAR_RANDOM_SEED: "42"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    image: sarcasm-radar-app:latest
+    container_name: sarcasm-radar-app
+    ports:
+      - "8501:8501"
+    environment:
+      SARCASM_RADAR_API_URL: "http://api:8000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  default:
+    name: sarcasm-radar-net

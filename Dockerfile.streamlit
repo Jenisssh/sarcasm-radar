@@ -1,0 +1,33 @@
+# Streamlit demo image. Calls the API via SARCASM_RADAR_API_URL — does
+# NOT bundle the model itself, so this image stays slim (~600MB vs the
+# ~3GB inference container).
+
+FROM python:3.12-slim
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN useradd --create-home --shell /usr/sbin/nologin --uid 1000 radar
+
+# Demo-only dep set — no transformers / torch
+RUN pip install \
+        streamlit==1.41.1 \
+        plotly==5.24.1 \
+        requests==2.34.0
+
+COPY app/streamlit_app.py /app/streamlit_app.py
+RUN chown -R radar:radar /app
+
+USER radar
+EXPOSE 8501
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request,sys; \
+sys.exit(0 if urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=3).status==200 else 1)"
+
+CMD ["streamlit", "run", "/app/streamlit_app.py", \
+     "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true"]
