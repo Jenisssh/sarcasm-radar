@@ -11,7 +11,7 @@ iSarcasm + SemEval-2022 + a hand-curated Indian English supplement.
 [![Code style: ruff](https://img.shields.io/badge/lint-ruff-d97706.svg)](https://github.com/astral-sh/ruff)
 
 The interesting question isn't whether a transformer beats logistic
-regression at sarcasm (it does). It's whether the *English-only*
+regression at sarcasm — it does. It's whether an English-only
 DistilBERT fine-tune handles Hinglish — phrases like *"haa beta,
 very smart move"* or *"mast plan, ab toh sab kuch theek ho hi
 jayega"* — and how much an explicit multilingual model like
@@ -21,13 +21,13 @@ XLM-RoBERTa helps.
 
 **Data layer**
 - HuggingFace loaders for iSarcasm and SemEval-2022 Task 6
-- normalisation into a single (text, label, source, language_register)
+- normalisation into a single `(text, label, source, language_register)`
   frame with first-frame-wins dedup
-- 50-row hand-curated Indian English supplement with a written
+- 50-row hand-curated Indian English supplement + written
   labelling protocol in `data/curated/LABELING_PROTOCOL.md`
-- tweet-friendly text cleaning (URLs, @mentions, hashtags, repeated
-  chars) — Hinglish-friendly: no lowercasing, no emoji removal,
-  no stopword removal
+- tweet-friendly text cleaning (URLs, @mentions, hashtags,
+  repeated chars) — Hinglish-friendly defaults (no lowercasing,
+  no emoji removal, no stopword removal)
 
 **Models**
 - TF-IDF (1-2 grams) + Logistic Regression baseline
@@ -36,20 +36,46 @@ XLM-RoBERTa helps.
   per-register macro-F1 comparison helper
 
 **Serving**
-- FastAPI service: `/health`, `/predict`, `/explain`
-- LIME-based per-token explanations on `/explain`
+- FastAPI: `/health`, `/predict`, `/explain` (LIME-based)
 - Streamlit demo with a Plotly score gauge and token-weight bar
 - Multi-stage Dockerfile (CPU-only torch wheel) + docker-compose
-  for the full stack
 
 **Quality**
 - ~160 tests, mypy `--strict` clean, ruff lint + format clean
 - GitHub Actions CI on every push
 
+## How it fits together
+
+```
+       iSarcasm + SemEval                  data/curated/indian_english.csv
+       (HuggingFace, gitignored)           (50 hand-labelled rows, committed)
+              │                                        │
+              └──────────────┬─────────────────────────┘
+                             ▼
+                   data.load.merge_corpora
+                  (text, label, source, language_register)
+                             │
+                             ▼
+                       data.clean
+                             │
+            ┌────────────────┼────────────────┐
+            ▼                ▼                ▼
+       TF-IDF + LR      DistilBERT       XLM-RoBERTa
+        baseline        fine-tune        fine-tune
+            └────────────────┼────────────────┘
+                             ▼
+                     models.inference
+                  (unified predict_single)
+                             │
+                  ┌──────────┴──────────┐
+                  ▼                     ▼
+              FastAPI               Streamlit
+            /predict /explain        demo app
+```
+
 ## Running it
 
-You'll need Python 3.12 and a Kaggle/HuggingFace setup for the
-corpora.
+You'll need Python 3.12 and a HuggingFace setup for the corpora.
 
 ```bash
 make install-dev               # editable install + dev tools
@@ -60,6 +86,47 @@ make app                       # Streamlit on http://localhost:8501
 ```
 
 Or `docker compose up` to bring up both services.
+
+## Talking to the API
+
+```bash
+curl -sX POST http://localhost:8000/predict \
+  -H 'content-type: application/json' \
+  -d '{"text":"mast plan, ab toh sab kuch theek ho hi jayega"}'
+```
+
+```json
+{
+  "text": "mast plan, ab toh sab kuch theek ho hi jayega",
+  "probability": 0.91,
+  "decision": "SARCASTIC",
+  "threshold": 0.5,
+  "model_version": "v0.1.0"
+}
+```
+
+`/explain` returns the same fields plus a `tokens` array with LIME
+per-token weights — positive pushes toward sarcastic, negative
+toward not.
+
+## Growing the curated supplement
+
+```python
+from sarcasm_radar.data.curate import append_label
+
+append_label(
+    text="kya mast plan banaya hai bhai, sab ka time waste",
+    label=1,
+    register="hi-en",
+    rationale="praising a plan that wastes everyone's time",
+)
+```
+
+The helper validates each row (rejects empty text, empty rationale,
+or bad label / register) and appends to
+`data/curated/indian_english.csv` with the correct header. Don't
+edit the CSV by hand — the rationale field is enforced
+non-empty for quality-control reasons.
 
 ## Layout
 
@@ -95,29 +162,41 @@ the literature:
 
 The aggregate macro-F1 looks like a tiny lift over DistilBERT, but
 that average is dominated by the ~98% English mass where the two
-models are within noise of each other. The real gap shows up on the
-en-IN and hi-en slices, which is exactly where the multilingual
-pretraining helps.
+models are within noise of each other. The real gap shows up on
+the en-IN and hi-en slices — about 10 points of macro-F1, which is
+the multilingual pretraining paying off.
 
 ## A few notes on the choices
 
 Macro-F1, not accuracy. Both classes matter equally; accuracy
 hides per-class failures.
 
-Per-register breakdown, not just aggregate. XLM-R's value is on the
-en-IN / hi-en register. The aggregate hides it because the corpus
-is ~98% English. The `compare_per_register` helper in
-`models.multilingual` is what surfaces it.
+Per-register breakdown, not just aggregate. XLM-R's value lives on
+the en-IN / hi-en register. The aggregate hides it because the
+corpus is ~98% English. `compare_per_register` in
+`models.multilingual` is what surfaces it, and notebook 02 plots
+the bar chart side-by-side.
 
 Curation over scraping. The 50-row Indian English supplement is
 small by design — the protocol matters more than the count. Each
 row has a written rationale alongside the label so a second
-annotator can audit the set; the curation module rejects rows with
-empty rationales for exactly this reason.
+annotator can audit the set; the curation module rejects rows
+with empty rationales for exactly this reason.
 
 LIME, not attention. Attention weights aren't explanations
-(Jain & Wallace 2019). LIME's local linear surrogate is slower but
-it's actually counterfactual.
+(Jain & Wallace 2019). LIME's local linear surrogate is slower —
+about 3-5 seconds per call on the transformer with 200 perturbations
+— but it's actually counterfactual.
+
+## What this doesn't do (yet)
+
+- No retraining cadence. Tweet slang moves fast; a real deployment
+  would need a monthly or quarterly refresh on a fresh time slice.
+- The supplement is 50 rows. Enough to validate the pipeline, not
+  enough to characterise Indian English sarcasm. The labelling
+  protocol is what makes it growable.
+- LIME on a transformer is too slow for high-throughput scoring.
+  `/explain` is for human-in-the-loop review, not real-time.
 
 ## Dataset citations
 
