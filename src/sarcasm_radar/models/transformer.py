@@ -165,7 +165,9 @@ class TransformerSarcasmClassifier:
             args=args,
             train_dataset=train_ds,
             eval_dataset=eval_ds,
-            tokenizer=tokenizer,
+            # `processing_class` replaced the `tokenizer` arg in transformers
+            # 4.46; the old name was removed outright in 4.47.
+            processing_class=tokenizer,
             data_collator=DataCollatorWithPadding(tokenizer),
             compute_metrics=compute_metrics if eval_ds is not None else None,
             callbacks=(
