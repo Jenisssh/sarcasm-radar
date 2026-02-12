@@ -181,24 +181,41 @@ class TransformerSarcasmClassifier:
         return self
 
     def predict_proba(self, X: pd.Series) -> NDArray[Any]:
-        """Return shape-(n, 2) probabilities."""
+        """Return shape-(n, 2) probabilities.
+
+        Runs inference in batches of ``config.eval_batch_size`` and moves
+        each batch onto the model's own device. After ``fit`` the HF Trainer
+        leaves the model on the GPU, so the encoded inputs (built on CPU by
+        default) must be moved to match — otherwise the forward pass raises
+        a device-mismatch RuntimeError. Batching also keeps a large input
+        set from blowing the GPU memory budget in a single forward pass.
+        """
         if self.model is None or self.tokenizer is None:
             raise RuntimeError("TransformerSarcasmClassifier is not fitted yet")
         import torch
 
         self.model.eval()
+        device = next(self.model.parameters()).device
         texts = [clean_text(t) for t in X]
-        encoded = self.tokenizer(
-            texts,
-            truncation=True,
-            padding=True,
-            max_length=self.config.max_length,
-            return_tensors="pt",
-        )
-        with torch.no_grad():
-            outputs = self.model(**encoded)
-        probs = torch.softmax(outputs.logits, dim=-1).cpu().numpy()
-        return np.asarray(probs)
+        if not texts:
+            return np.empty((0, 2), dtype="float64")
+
+        batches: list[NDArray[Any]] = []
+        for start in range(0, len(texts), self.config.eval_batch_size):
+            chunk = texts[start : start + self.config.eval_batch_size]
+            encoded = self.tokenizer(
+                chunk,
+                truncation=True,
+                padding=True,
+                max_length=self.config.max_length,
+                return_tensors="pt",
+            )
+            encoded = {k: v.to(device) for k, v in encoded.items()}
+            with torch.no_grad():
+                logits = self.model(**encoded).logits
+            batches.append(torch.softmax(logits, dim=-1).cpu().numpy())
+        probs: NDArray[Any] = np.concatenate(batches, axis=0).astype("float64")
+        return probs
 
     def predict(self, X: pd.Series, threshold: float = 0.5) -> NDArray[Any]:
         return (self.predict_proba(X)[:, 1] >= threshold).astype(int)
