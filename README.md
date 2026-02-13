@@ -14,8 +14,9 @@ The interesting question isn't whether a transformer beats logistic
 regression at sarcasm — it does. It's whether an English-only
 DistilBERT fine-tune handles Hinglish — phrases like *"haa beta,
 very smart move"* or *"mast plan, ab toh sab kuch theek ho hi
-jayega"* — and how much an explicit multilingual model like
-XLM-RoBERTa helps.
+jayega"* — and whether an explicit multilingual model like
+XLM-RoBERTa actually helps. (Spoiler from the Results section: on a
+small dataset, it doesn't — it collapses.)
 
 ## What's in it
 
@@ -150,32 +151,48 @@ docs/           model card, data card, architecture
 
 ## Results
 
-Filled in by the last cell of `notebooks/02_error_analysis.ipynb`
-after `make train`. The pattern we expect on this corpus, based on
-the literature:
+Trained on the SemEval-2022 Task 6 iSarcasmEval English set (2,773
+train / 694 test tweets, stratified 80/20). The 50-row curated
+Indian English set is held out entirely as a cross-domain probe —
+no model trains on it. Reproduce on a free Colab GPU with
+[`notebooks/03_train_colab.ipynb`](notebooks/03_train_colab.ipynb).
 
-| Model | Macro-F1 (all) | Macro-F1 (en-IN + hi-en) |
+| Model | Macro-F1 (iSarcasmEval test) | Macro-F1 (Indian English probe, n=50) |
 |-------|:-:|:-:|
-| TF-IDF + LR | ~0.68 | ~0.55 |
-| DistilBERT | ~0.78 | ~0.62 |
-| XLM-RoBERTa | ~0.79 | **~0.72** |
+| TF-IDF + LR | 0.545 | 0.523 |
+| **DistilBERT** | **0.588** | **0.696** |
+| XLM-RoBERTa | 0.428 † | 0.333 † |
 
-The aggregate macro-F1 looks like a tiny lift over DistilBERT, but
-that average is dominated by the ~98% English mass where the two
-models are within noise of each other. The real gap shows up on
-the en-IN and hi-en slices — about 10 points of macro-F1, which is
-the multilingual pretraining paying off.
+**DistilBERT is the production model.** 0.588 macro-F1 sounds
+modest, but iSarcasmEval is a deliberately hard benchmark — the
+SemEval-2022 Task 6 shared-task systems scored in the 0.57–0.61
+range, so this is competitive with the published competition
+results. DistilBERT also holds up on the curated Indian English
+probe (0.696), so a model trained only on Western tweets
+generalises reasonably to the en-IN / hi-en register.
+
+† **XLM-RoBERTa-base collapsed to the majority class** during
+fine-tuning — per-class F1 on the test set was 0.857 (not-sarcastic)
+and **0.000 (sarcastic)**. It learned the trivial all-negative
+solution and never predicts the minority class. This is a known
+instability of XLM-R-base on small (~2.7k rows), class-imbalanced
+data without a class-weighted loss. The honest finding: the
+multilingual model is *not* the win here — the lighter DistilBERT
+is the practical choice, and XLM-R would need more data plus
+class-weighting and a lower learning rate to be viable. Full
+write-up in [`docs/model_card.md`](docs/model_card.md).
 
 ## A few notes on the choices
 
 Macro-F1, not accuracy. Both classes matter equally; accuracy
 hides per-class failures.
 
-Per-register breakdown, not just aggregate. XLM-R's value lives on
-the en-IN / hi-en register. The aggregate hides it because the
-corpus is ~98% English. `compare_per_register` in
-`models.multilingual` is what surfaces it, and notebook 02 plots
-the bar chart side-by-side.
+The Indian English set is a held-out probe, not training data. 50
+rows can't train anything — but it's a clean cross-domain test:
+models trained on Western iSarcasm tweets, scored on curated
+en-IN / hi-en text they never saw. `compare_per_register` in
+`models.multilingual` does the per-register split. (It's also how
+the XLM-R collapse showed up clearly — see Results.)
 
 Curation over scraping. The 50-row Indian English supplement is
 small by design — the protocol matters more than the count. Each
