@@ -8,7 +8,6 @@ An end-to-end NLP project — data curation, a TF-IDF baseline, transformer
 fine-tuning (DistilBERT, XLM-RoBERTa), a FastAPI inference service with
 LIME explanations, and a Streamlit demo. Tested, typed, and containerized.
 
-[![CI](https://github.com/Jenisssh/sarcasm-radar/actions/workflows/ci.yml/badge.svg)](https://github.com/Jenisssh/sarcasm-radar/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.5-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![Transformers](https://img.shields.io/badge/HuggingFace-Transformers-FFD21E?logo=huggingface&logoColor=black)](https://huggingface.co/docs/transformers)
@@ -32,7 +31,7 @@ LIME explanations, and a Streamlit demo. Tested, typed, and containerized.
 | **Data** | pandas · HuggingFace `datasets` · custom annotation & curation pipeline |
 | **Evaluation** | macro-F1 · per-class precision/recall · stratified split · cross-domain probe |
 | **Serving** | FastAPI · Uvicorn · REST API · Streamlit · Plotly |
-| **Infrastructure** | Docker · docker-compose · GitHub Actions CI/CD |
+| **Infrastructure** | Docker · docker-compose |
 | **Code quality** | pytest (160+ tests) · mypy `--strict` · ruff · pre-commit |
 
 ---
@@ -75,7 +74,7 @@ evaluation → deployment.**
 
 **Engineering rigor**
 - 160+ tests, `mypy --strict` clean, ruff lint + format clean
-- GitHub Actions CI on every push
+- pre-commit hooks for lint, format, and type checks
 
 ---
 
