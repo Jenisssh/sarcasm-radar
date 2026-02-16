@@ -214,37 +214,6 @@ docs/           model card · data card · architecture
 
 ---
 
-## 🧠 Design notes
-
-**Macro-F1, not accuracy** — both classes matter equally; accuracy hides
-per-class failures (exactly the failure mode XLM-R fell into).
-
-**A held-out cross-domain probe** — the 50-row Indian English set is
-never training data. It's a clean test of whether a model trained on
-Western tweets generalizes to en-IN / hi-en text it never saw.
-
-**Curation over scraping** — the supplement is small by design; the
-written protocol matters more than the row count. Every row carries a
-rationale so the labels are auditable.
-
-**LIME, not attention** — attention weights aren't explanations
-(Jain & Wallace, 2019). LIME's local linear surrogate is slower but
-genuinely counterfactual.
-
----
-
-## ⚠️ Limitations
-
-- The Indian English supplement is 50 rows — enough to probe with, not
-  to characterize the register. The labelling protocol makes it growable.
-- XLM-RoBERTa needs a class-weighted loss + lower learning rate + more
-  data to be viable here (see model card).
-- LIME on a transformer is slow (~3–5 s/call) — `/explain` is for
-  human-in-the-loop review, not high-throughput scoring.
-- Single train/test split — point estimates, no confidence intervals.
-
----
-
 ## 📚 Dataset citations
 
 > Silviu Oprea and Walid Magdy. *iSarcasm: A Dataset of Intended
