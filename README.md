@@ -16,6 +16,10 @@ LIME explanations, and a Streamlit demo. Tested, typed, and containerized.
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/lint-ruff-d97706.svg)](https://github.com/astral-sh/ruff)
 
+<br/>
+
+<img src="docs/images/demo-score2.png" alt="sarcasm-radar Streamlit demo — scoring a tweet for sarcasm with a probability gauge and per-token LIME weights" width="760"/>
+
 </div>
 
 ---
