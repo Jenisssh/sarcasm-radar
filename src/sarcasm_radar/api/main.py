@@ -35,6 +35,7 @@ from sarcasm_radar.api.schemas import (
 )
 from sarcasm_radar.models.inference import (
     ModelArtifacts,
+    ModelKind,
     load_artifacts,
     predict_single,
 )
@@ -48,9 +49,21 @@ LIME_NUM_FEATURES = 10
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Load artifacts once at startup; clear on shutdown."""
-    try:
-        artifacts = load_artifacts()
+    """Load model artifacts once at startup; clear them on shutdown.
+
+    Tries the transformer checkpoint first, then the TF-IDF baseline.
+    Whichever artifact is present on disk gets served — so a local dev
+    box can run the lightweight baseline while production serves the
+    transformer, with no config change. If neither is found the service
+    still starts (degraded mode) and the endpoints return 503.
+    """
+    app.state.artifacts = None
+    candidates: tuple[ModelKind, ...] = ("transformer", "baseline")
+    for kind in candidates:
+        try:
+            artifacts = load_artifacts(kind=kind)
+        except FileNotFoundError:
+            continue
         app.state.artifacts = artifacts
         log.info(
             "model_loaded",
@@ -58,9 +71,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             version=artifacts.model_version,
             threshold=artifacts.threshold,
         )
-    except FileNotFoundError as e:
-        app.state.artifacts = None
-        log.warning("model_artifacts_missing", error=str(e))
+        break
+    else:
+        log.warning("model_artifacts_missing", searched=list(candidates))
     yield
     app.state.artifacts = None
 
